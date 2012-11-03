@@ -1,5 +1,141 @@
 module Parser where
 import Lexer
-data Tag = OpenTag String | CloseTag String
+import Text.ParserCombinators.Parsec
+import Text.ParserCombinators.Parsec.Expr
+import Text.Parsec.Pos (newPos)
 
+--Abstract syntax tree
+data Tag = OpenTag String | CloseTag String
+data Variable = LocalVar String | GlobalVar String
+data OrchestraSection = 
+	InstrumentLabel Int |
+	Definition Variable DefType Args |
+	Equality Variable VExpression |
+	Out VExpression | 
+	EndIn
+data VExpression = 
+	RawVar Variable |
+	RawInt Int |
+	VExpression :+: VExpression |
+	VExpression :-: VExpression |
+	VExpression :*: VExpression |
+	VExpression :/: VExpression 
+data OptionsSection = 
+	Flags |
+	OutFile String 
+data Flag = Flag Char
+	
+type Flags = [Flag]
+type Args = [VExpression]
+type DefType = String	
+
+--convenience
 type TokenParser a = GenParser Token () a
+
+--parsing
+openTag :: Token -> TokenParser Tag
+openTag tn = do
+	gt
+	(Name a) <- nam
+	lt
+	case a of
+	 tn -> return $ OpenTag tn
+	 
+closeTag :: Token -> TokenParser Tag
+closeTag tn = do
+	gt
+	divis
+	(Name a) <- nam
+	lt
+	case a of
+	 tn -> return $ OpenTag tn
+
+--utility
+isToken :: (Token -> Bool) -> TokenParser Token
+isToken f = token show (\t -> newPos "" 0 0) (\t -> if f t then Just t else Nothing)
+		
+operator (Punct x) = case x of
+						"+"		-> plus
+						"-"		-> minus
+						"*"		-> mult
+						"/"		-> divis
+						">"		-> gt
+						"<"		-> lt
+						
+isFor x = case x of
+		Name "for"	-> True
+		_	-> False
+isIn x = case x of
+		Name "in"	-> True
+		_	-> False
+isColon x = case x of
+		Punct ":"	-> True
+		_	-> False
+isName x = case x of
+		Name x	-> True
+		_	-> False
+isEquals x = case x of
+		Punct "="	-> True
+		_		-> False
+isOpenParen x = case x of
+		Punct "("	-> True
+		_		-> False
+isCloseParen x = case x of
+		Punct ")"	-> True
+		_		-> False
+isComma x = case x of
+		Punct ","	-> True
+		_		-> False
+isPlus x = case x of
+		Punct "+"	-> True
+		_		-> False
+isMinus x = case x of
+		Punct "-"	-> True
+		_		-> False
+isMult x = case x of
+		Punct "*"	-> True
+		_		-> False
+isDiv x = case x of
+		Punct "/"	-> True
+		_		-> False
+isNumber x = case x of
+		Number x 	-> True
+		_	 	-> False
+isTerm x = case x of
+		Terminate 	-> True
+		_		-> False
+isIf x = case x of
+		Name "if"	-> True
+		_		-> False
+isElse x = case x of
+		Name "else"	-> True
+		_		-> False
+isGt x = case x of
+		Punct ">"	-> True
+		_		-> False
+isLt x = case x of
+		Punct "<"	-> True
+		_		-> False
+
+nam = isToken isName
+num = isToken isNumber
+eql = isToken isEquals
+closeParen = isToken isCloseParen
+openParen = isToken isOpenParen
+
+plus = isToken isPlus
+minus = isToken isMinus
+mult = isToken isMult
+divis = isToken isDiv
+term = isToken isTerm
+comma = isToken isComma
+colon = isToken isColon
+for = isToken isFor
+forIn = isToken isIn
+ifs = isToken isIf
+els = isToken isElse
+gt = isToken isGt
+lt = isToken isLt
+
+strToInt :: String -> Int
+strToInt s = read s
