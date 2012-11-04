@@ -5,6 +5,7 @@ import Text.ParserCombinators.Parsec.Expr
 import Text.Parsec.Pos (newPos)
 
 --Abstract syntax tree
+data Program = Program OptionsSection OrchestraSection
 data Tag = OpenTag String | CloseTag String
 data Variable = LocalVar String | GlobalVar String
 data OrchestraSection = 
@@ -33,7 +34,21 @@ type DefType = String
 type TokenParser a = GenParser Token () a
 
 --parsing
-openTag :: Token -> TokenParser Tag
+program :: TokenParser Program
+program = do
+	openTag "CsoundSynthesizer"
+	a <- optBlock
+	b <- orchBlock
+	closeTag "CsoundSynthesizer"
+	return $ Program a b
+	
+orchBlock :: TokenParser OrchestraSection
+orchBlock = orchBlock
+
+optBlock :: TokenParser OptionsSection
+optBlock = optBlock
+
+openTag :: String -> TokenParser Tag
 openTag tn = do
 	gt
 	(Name a) <- nam
@@ -41,7 +56,7 @@ openTag tn = do
 	case a of
 	 tn -> return $ OpenTag tn
 	 
-closeTag :: Token -> TokenParser Tag
+closeTag :: String -> TokenParser Tag
 closeTag tn = do
 	gt
 	divis
