@@ -1,11 +1,10 @@
 {-# LANGUAGE Arrows #-}
 module Eval where
-import Euterpea
+import Euterpea 
 import Parser
 import Control.Arrow ((<<<), (>>>), arr)
 
-simpleClip :: SigFun AudRate () Double
-simpleClip = oscFixed 880
+instance Clock VarRate where
+rate = id
 
-outs :: AudioSample a => SigFun AudRate () a -> IO ()
-outs f = outFile "test.wav" 3 f
+type VarSF a b = SigFun VarRate a b

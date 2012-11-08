@@ -5,15 +5,19 @@ import Text.ParserCombinators.Parsec.Expr
 import Text.Parsec.Pos (newPos)
 
 --Abstract syntax tree
-data Program = Program OptionsSection OrchestraSection
-data Tag = OpenTag String | CloseTag String
-data Variable = LocalVar String | GlobalVar String
+data Program = Program OptionsSection OrchestraSection ScoreSection
+data Tag = OpenTag String | CloseTag String -- <tagname>
+data Variable = LocalVar String | GlobalVar String -- </tagname>
 data OrchestraSection = 
-	InstrumentLabel Int |
-	Definition Variable DefType Args |
-	Equality Variable VExpression |
-	Out VExpression | 
-	EndIn
+	InstrumentLabel Int | -- instr [instrID]
+	Definition Variable DefType Args | -- [a,k,i] [osctype] [args]
+	Equality Variable VExpression | -- [setupvar] = [val]
+	Out VExpression | -- out [instrname]
+	EndIn -- endin
+data ScoreSection = ScoreSection [OscTable] [InstTable]
+data OscTable = OscTable String [Int]  -- f1 0 4096 10 1
+data InstTable = InstTable String [Int] -- i2 0 1 2000 4000 8000
+
 data VExpression = 
 	RawVar Variable |
 	RawInt Int |
@@ -39,14 +43,28 @@ program = do
 	openTag "CsoundSynthesizer"
 	a <- optBlock
 	b <- orchBlock
+	c <- scoreBlock
 	closeTag "CsoundSynthesizer"
-	return $ Program a b
+	return $ Program a b c
 	
 orchBlock :: TokenParser OrchestraSection
 orchBlock = orchBlock
-
+	
 optBlock :: TokenParser OptionsSection
 optBlock = optBlock
+
+scoreBlock :: TokenParser ScoreSection
+scoreBlock = do
+	a <- osctab
+	b <- insttab
+	isToken (genName "e")	
+	return $ ScoreSection a b
+
+osctab :: TokenParser [OscTable]
+osctab = osctab
+
+insttab :: TokenParser [InstTable]
+insttab = insttab
 
 openTag :: String -> TokenParser Tag
 openTag tn = do
@@ -76,7 +94,11 @@ operator (Punct x) = case x of
 						"/"		-> divis
 						">"		-> gt
 						"<"		-> lt
-						
+
+genName :: String -> (Token -> Bool)
+genName nm = (\x -> case x of
+			Name nm -> True
+			_	-> False)						
 isFor x = case x of
 		Name "for"	-> True
 		_	-> False
