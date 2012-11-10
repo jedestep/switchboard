@@ -255,10 +255,11 @@ tags l@(l':ls) (Event ef) = f l ef where
      in f a0
 
 when :: Behavior Bool -> Event ()
-when (Behavior bf) = Event (\s -> let (Behavior a', av) = bf s in (f a' av, Nothing)) where
-	f a v = Event (\s' -> let (Behavior b', bv) = a s' in
-				(f b' bv, case (v, bv) of
-					(False, True) -> Just ()
+when (Behavior bf) = f bf where
+	f a = Event (\s -> let  (Behavior a', av) = a s
+				(Behavior b', bv) = a' s in
+			     (f b', case (av, bv) of
+					(True, True) -> Just ()
 					_ -> Nothing))
 
 once :: Event a -> Event a
@@ -413,4 +414,4 @@ t12 = animate $ (FRP.until (el (p2 0 0) ((p2 300 50) + (integral (p2 (-20) 10)))
 		
 t13 = animate $ (until_ red (keyIs 'y') yellow) &* el (p2 30 30) (p2 200 200)
 
-t14 = animate $ (switch green (((when $ time >=* (lift0 1)) -=> blue) .|. ((when $ time >=* (lift0 2)) -=> red))) &* el (p2 50 50) (p2 100 100) $$ (showB time @@ (p2 200 200))
+t14 = animate $ (switch green (((when $ (time >=* (lift0 1) &&* (time <=* (lift0 2)))) -=> blue) .|. ((when $ time >* (lift0 2)) -=> red))) &* el (p2 50 50) (p2 100 100) $$ (showB time @@ (p2 200 200))
