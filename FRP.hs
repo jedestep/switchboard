@@ -231,15 +231,22 @@ always = Event (const (always, Just ()))
 -- most of the event functionality
 
 mapEs :: st -> ((st, a) -> (st, Maybe b)) -> Event a -> Event b
-mapEs = error "mapEs not implemented"
+mapEs state fn ev = error "derp"
 
 filterE :: Event a -> (a -> Bool) -> Event a
-filterE = error "filterE not implemented"
-
+filterE (Event ef) fn = f ef where
+	f a = Event (\s -> let (Event a', av) = a s in
+			(f a', case av of
+				Just c  -> if (fn c) then Just c else Nothing
+				Nothing -> Nothing))
 -- This suppresses events once the tag supply is exhausted
 
 tags :: [a] -> Event b -> Event a
-tags = error "tags not implemented"
+tags l@(l':ls) (Event ef) = f l ef where
+	f x@(x':xs) a = Event (\s -> let (Event a', av) = a s in
+				case av of
+					Just c  -> (f xs a', Just x')
+					Nothing -> (f x a', Nothing))
 
 (==>) :: Event a -> (a -> b) -> Event b
 (Event a0) ==> fn =
@@ -248,7 +255,11 @@ tags = error "tags not implemented"
      in f a0
 
 when :: Behavior Bool -> Event ()
-when = error "when not implemented"
+when (Behavior bf) = Event (\s -> let (Behavior a', av) = bf s in (f a' av, Nothing)) where
+	f a v = Event (\s' -> let (Behavior b', bv) = a s' in
+				(f b' bv, case (v, bv) of
+					(False, True) -> Just ()
+					_ -> Nothing))
 
 once :: Event a -> Event a
 once = error "once not implemented"
@@ -261,12 +272,7 @@ clock r = f r where
 			)
 
 (-=>) :: Event a -> b -> Event b
-(Event a0) -=> b = 
-	let f a = Event (\s -> let (Event a', av) = a s in
-				case av of
-				(Just _) -> (f a', Just b)
-				Nothing  -> (f a', Nothing))
-	 in f a0
+a -=> b = a ==> (const b)
 
 (.|.) :: Event a -> Event a -> Event a
 (Event e1) .|. (Event e2) = 
@@ -299,9 +305,16 @@ switch (Behavior bf) (Event ef) = f bf ef where
 			)
 
 until :: Behavior a -> Event b -> (b -> Behavior a) -> Behavior a
-until = error "until not implemented"
+until (Behavior bf) (Event ef) fn = f bf ef where
+	f a b = Behavior (\s -> let   	(Behavior a', av) = a s
+					(Event b', bv) = b s in
+				    case bv of
+				     Nothing -> (f a' b', av)
+				     Just x  -> let (Behavior z) = fn x 
+						    (Behavior z', zv) = z s in
+						(f z' b', zv))
 until_ :: Behavior a -> Event b -> Behavior a -> Behavior a
-until_ = error "until_ not implemented"
+until_ b e fn = FRP.until b e (const fn)
 
 accum :: a -> Event (a -> a) -> Behavior a
 accum v (Event ef) = f ef v where
@@ -388,3 +401,16 @@ t10 = animate $ (accum (text (0,0) "")
                                                      (round x + 10, round y + 10)
                                                 `overGraphic`
                                              g)))
+					     
+t11 = animate $ (FRP.until red (key) charToColor) &* el (p2 30 30) (p2 200 200)
+
+t12 = animate $ (FRP.until (el (p2 0 0) ((p2 300 50) + (integral (p2 (-20) 10)))) key 
+	(\c -> case c of
+		'a' -> (el (p2 0 0) ((p2 300 50) + (integral (p2 (20) 10))))
+		'b' -> (el (p2 0 0) ((p2 300 50) + (integral (p2 20 (-10)))))
+		'c' -> (el (p2 0 0) ((p2 300 50) + (integral (p2 (-20) (-10)))))
+		_ -> (el (p2 0 0) ((p2 300 50) + (integral (p2 (-20) 10))))))
+		
+t13 = animate $ (until_ red (keyIs 'y') yellow) &* el (p2 30 30) (p2 200 200)
+
+t14 = animate $ (switch green (((when $ time >=* (lift0 1)) -=> blue) .|. ((when $ time >=* (lift0 2)) -=> red))) &* el (p2 50 50) (p2 100 100) $$ (showB time @@ (p2 200 200))
