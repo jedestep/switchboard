@@ -72,9 +72,9 @@ keyToMusic ch = case ch of
 r1 = animate $ showB (wrap 8 112) @@ (p2 50 50) $$ (showB time @@ (p2 50 150)) $$ (showB (hold 0 (tloop 112)) @@ (p2 50 100))
 
 --moving metronome
-amt1 = ((lift1 intToDouble) $ 10*(wrap 8 112))
+amt1 = ((lift1 intToDouble) $ 10*(wrap 8 112)) -- this value should be observed at some point
 r2 = animate $ el (p2 amt1 0) (p2 (25+amt1) 25)
 
 --accumulating music objects
-r3= animate $ showB (accum (rest 0) (rkey ==> (\m -> (:+: (keyToMusic m))))) @@ (p2 50 50)
+r3 = animate $ showB (accum (rest 0) (rkey ==> (\m -> (:+: (keyToMusic m))))) @@ (p2 50 50)
 

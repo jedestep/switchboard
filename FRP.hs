@@ -234,19 +234,11 @@ mapEs :: st -> ((st, a) -> (st, Maybe b)) -> Event a -> Event b
 mapEs state fn ev = error "derp"
 
 filterE :: Event a -> (a -> Bool) -> Event a
-filterE (Event ef) fn = f ef where
-	f a = Event (\s -> let (Event a', av) = a s in
-			(f a', case av of
-				Just c  -> if (fn c) then Just c else Nothing
-				Nothing -> Nothing))
+filterE (Event ef) fn = error ""
 -- This suppresses events once the tag supply is exhausted
 
 tags :: [a] -> Event b -> Event a
-tags l@(l':ls) (Event ef) = f l ef where
-	f x@(x':xs) a = Event (\s -> let (Event a', av) = a s in
-				case av of
-					Just c  -> (f xs a', Just x')
-					Nothing -> (f x a', Nothing))
+tags l@(l':ls) (Event ef) = error ""
 
 (==>) :: Event a -> (a -> b) -> Event b
 (Event a0) ==> fn =
@@ -255,12 +247,7 @@ tags l@(l':ls) (Event ef) = f l ef where
      in f a0
 
 when :: Behavior Bool -> Event ()
-when (Behavior bf) = f bf where
-	f a = Event (\s -> let  (Behavior a', av) = a s
-				(Behavior b', bv) = a' s in
-			     (f b', case (av, bv) of
-					(True, True) -> Just ()
-					_ -> Nothing))
+when (Behavior bf) = error ""
 
 once :: Event a -> Event a
 once = error "once not implemented"
@@ -306,14 +293,7 @@ switch (Behavior bf) (Event ef) = f bf ef where
 			)
 
 until :: Behavior a -> Event b -> (b -> Behavior a) -> Behavior a
-until (Behavior bf) (Event ef) fn = f bf ef where
-	f a b = Behavior (\s -> let   	(Behavior a', av) = a s
-					(Event b', bv) = b s in
-				    case bv of
-				     Nothing -> (f a' b', av)
-				     Just x  -> let (Behavior z) = fn x 
-						    (Behavior z', zv) = z s in
-						(f z' b', zv))
+until (Behavior bf) (Event ef) fn = error ""
 until_ :: Behavior a -> Event b -> Behavior a -> Behavior a
 until_ b e fn = FRP.until b e (const fn)
 
