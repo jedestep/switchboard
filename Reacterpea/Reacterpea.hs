@@ -59,15 +59,28 @@ keyToNote 'a' = (a_ 4)
 keyToNote 'b' = (b_ 4)
 keyToNote 'c' = (c_ 4)
 
-keyToMusic ch = case ch of
-	'a' -> a 4 1
-	'b' -> b 4 1
-	'c' -> c 4 1
-	'd' -> d 4 1
-	'e' -> e 4 1
-	'f' -> f 4 1
-	'g' -> g 4 1	
-	
+--charToMusic :: Char -> Music Pitch
+charToMusic :: Char -> Maybe (Music Pitch)
+charToMusic ch = case ch of
+    'a' -> Just (a 4 1)
+    'b' -> Just (b 4 1)
+    'c' -> Just (c 4 1)
+    'd' -> Just (d 4 1)
+    'e' -> Just (e 4 1)
+    'f' -> Just (f 4 1)
+    'g' -> Just (g 4 1)
+    _   -> Nothing
+
+playingLB, playingRB :: Behavior Bool
+playingLB = isOn lbp lbr
+playingRB = isOn rbp rbr
+
+startA = when (playingLB)
+stopA = when (playingLB ==* rFalse)
+
+startB = when (playingRB)
+stopB = when (playingRB ==* rFalse)
+
 --consistent tempo clocking with comparisons
 r1 = animate $ showB (wrap 8 112) @@ (p2 50 50) $$ (showB time @@ (p2 50 150)) $$ (showB (hold 0 (tloop 112)) @@ (p2 50 100))
 
@@ -76,5 +89,21 @@ amt1 = ((lift1 intToDouble) $ 10*(wrap 8 112)) -- this value should be observed 
 r2 = animate $ el (p2 amt1 0) (p2 (25+amt1) 25)
 
 --accumulating music objects
-r3 = animate $ showB (accum (rest 0) (rkey ==> (\m -> (:+: (keyToMusic m))))) @@ (p2 50 50)
+--r3 = animate $ showB (accum (rest 0) (rkey ==> (\m -> (:+: (charToMusic m))))) @@ (p2 50 50)
+r3 = animate $ showB (accum (rest 0) (rkey ==> (\c -> let mMusic = (charToMusic c) in
+                                                          case mMusic of
+														       Nothing         -> id
+														       (Just newMusic) -> (:+: newMusic)
+                                                ))) @@ (p2 50 50)
 
+el1 = el (p2 0 0) (p2 25 25)
+el2 = el (p2 25 25) (p2 50 50)
+el3 = el (p2 50 50) (p2 75 75)
+el4 = el (p2 75 75) (p2 100 100)
+--r4 = animate $ switch el1 (((keyIs 'a') -=> el2) .|. ((keyIsUp 'a') -=> el3))
+r4 = animate $ switch el1 ( (keyUp -=> el2) )
+
+r5 = animate $ switch blue ( (startA -=> red) .|. (stopA -=> green)) &* el (p2 50 50) (p2 100 100)
+r6 = animate $ switch el1 ( (startB -=> el2) .|. (stopB -=> el1))
+
+r7 = animate $ choose (isOn lbp lbr) el1 el2

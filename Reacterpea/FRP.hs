@@ -219,6 +219,14 @@ keyIs k = stimEvent (\ev -> case ev of
 			 _		-> Nothing
 		)
 
+keyIsUp :: Char -> Event ()
+keyIsUp k = stimEvent (\ev -> case ev of
+                                  (Key {char = k, isDown = False}) -> Just ()
+                                  _                                -> Nothing
+                    )
+
+
+					
 -- Event stream combinators
 
 never :: Event a
@@ -247,10 +255,22 @@ tags l@(l':ls) (Event ef) = error ""
      in f a0
 
 when :: Behavior Bool -> Event ()
-when (Behavior bf) = error ""
+--when (Behavior bf) = error ""
+when b0 = f b0 where
+    f (Behavior fB) = Event (\ s -> let (b', bool) = fB s in
+                                        case bool of
+                                             True  -> (f b', Just ())
+                                             False -> (f b', Nothing)
+                             )
 
 once :: Event a -> Event a
-once = error "once not implemented"
+--once = error "once not implemented"
+once e0 = f e0 where
+    f (Event fE) = Event (\s -> let (e', mA') = fE s in
+                                       case mA' of
+                                            Nothing   -> (f e', Nothing)
+                                            (Just a') -> (f never, Just a')
+                             )
 
 clock :: Double -> Event ()
 clock r = f r where
@@ -284,6 +304,13 @@ snap (Event ef) (Behavior bf) = f ef bf where
 			))
 
 -- Switchers
+
+rTrue, rFalse :: Behavior Bool
+rTrue = lift0 True
+rFalse = lift0 False
+
+isOn :: Event a -> Event b -> Behavior Bool
+isOn evOn evOff = switch rFalse ((evOn -=> rTrue) .|. (evOff -=> rFalse))
 
 switch :: Behavior a -> Event (Behavior a) -> Behavior a
 switch (Behavior bf) (Event ef) = f bf ef where
