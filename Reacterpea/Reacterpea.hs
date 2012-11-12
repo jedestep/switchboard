@@ -75,11 +75,16 @@ playingLB, playingRB :: Behavior Bool
 playingLB = isOn lbp lbr
 playingRB = isOn rbp rbr
 
-startA = when (playingLB)
-stopA = when (playingLB ==* rFalse)
+--startA = when (playingLB)
+--stopA = when (playingLB ==* rFalse)
 
-startB = when (playingRB)
-stopB = when (playingRB ==* rFalse)
+--startB = when (playingRB)
+--stopB = when (playingRB ==* rFalse)
+
+startA = lbp
+stopA = lbr
+startB = rbp
+stopB = rbr
 
 --consistent tempo clocking with comparisons
 r1 = animate $ showB (metronome 112) @@ (p2 50 50) $$ (showB time @@ (p2 50 150))
@@ -96,14 +101,14 @@ r3 = animate $ showB (accum (rest 0) (rkey ==> (\c -> let mMusic = (charToMusic 
 														       (Just newMusic) -> (:+: newMusic)
                                                 ))) @@ (p2 50 50)
 
-el1 = el (p2 0 0) (p2 25 25)
-el2 = el (p2 25 25) (p2 50 50)
-el3 = el (p2 50 50) (p2 75 75)
-el4 = el (p2 75 75) (p2 100 100)
---r4 = animate $ switch el1 (((keyIs 'a') -=> el2) .|. ((keyIsUp 'a') -=> el3))
-r4 = animate $ switch el1 ( (keyUp -=> el2) )
+aOn = el (p2 0 0) (p2 25 25)
+aOff = el (p2 50 0) (p2 75 25)
 
-r5 = animate $ switch blue ( (startA -=> red) .|. (stopA -=> green)) &* el (p2 50 50) (p2 100 100)
-r6 = animate $ switch el1 ( (startB -=> el2) .|. (stopB -=> el1))
+bOn = el (p2 0 50) (p2 25 75)
+bOff = el (p2 50 50) (p2 75 75)
 
-r7 = animate $ choose (isOn lbp lbr) el1 el2
+-- Test keyUp : DOES NOT SEEM TO BE WORKING
+r4 = animate $ switch aOn ( (keyUp -=> aOff) )
+
+-- Keyboard-ish, tests startA and stopA
+r5 = animate $ (switch aOn ( (startA -=> aOff) .|. (stopA -=> aOn))) $$ (switch bOn ( (startB -=> bOff) .|. (stopB -=> bOn)))
