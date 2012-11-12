@@ -81,10 +81,34 @@ playingRB = isOn rbp rbr
 --startB = when (playingRB)
 --stopB = when (playingRB ==* rFalse)
 
-startA = lbp
-stopA = lbr
-startB = rbp
-stopB = rbr
+startA, stopA, startB, stopB :: FRP.Event String
+startA = lbp -=> "+a"
+stopA = lbr -=> "-a"
+startB = rbp -=> "+b"
+stopB = rbr -=> "-b"
+
+type RNote = (Double, String)
+type Loop = [RNote]
+
+filterMaybes :: [Maybe a] -> [a]
+filterMaybes mAs = foldl (\ l mA -> case mA of
+                                         (Just a) -> l ++ [a]
+                                         Nothing  -> l
+                          ) [] mAs 
+
+checkNoteEvents :: Stimulus -> [FRP.Event String] -> ([FRP.Event String], [RNote])
+checkNoteEvents s events = let (newEvents, mStrings) = unzip (map (\ (FRP.Event fE) -> fE s) events)
+                               (Behavior amtFn) = amt1 in
+                               let strings = filterMaybes mStrings
+                                   (_,amt) = amtFn s in
+                                   (newEvents, zip (repeat amt) strings)
+                                                         
+
+--loop :: [Event ()] -> [Event ()] -> Behavior Loop -- records note events during a loop
+--loop startEvents stopEvents = f0 startEvents stopEvents where
+--    f0 startEvents stopEvents = f (startEvents ++ stopEvents) []
+--    f startEvents stopEvents loop = Behavior (\ s -> 
+
 
 --consistent tempo clocking with comparisons
 r1 = animate $ showB (metronome 112) @@ (p2 50 50) $$ (showB time @@ (p2 50 150))
