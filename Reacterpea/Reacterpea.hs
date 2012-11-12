@@ -29,9 +29,9 @@ pulse r = f r where
 				False -> (f a, Nothing)
 			)
 			
-tloop tmp = pulse (1/(tmp/60)) --tmp represents beats per minute
-wrap :: Int -> Double -> Behavior Int
-wrap b t = (accum 0 ((tloop t) -=> (+1))) %* (lift0 b)
+metronome rate = wrap 16 (4*rate) where
+	tloop tmp = pulse (1/(tmp/60)) --tmp represents beats per minute
+	wrap b t = (accum 0 ((tloop t) -=> (+1))) %* (lift0 b)
 
 --notes
 a_, as_, bf_, b_, c_, cs_, df_, d_, ef_, e_, f_, fs_, gf_, g_, gs_, af_ :: Octave -> Pitch
@@ -82,11 +82,11 @@ startB = when (playingRB)
 stopB = when (playingRB ==* rFalse)
 
 --consistent tempo clocking with comparisons
-r1 = animate $ showB (wrap 8 112) @@ (p2 50 50) $$ (showB time @@ (p2 50 150)) $$ (showB (hold 0 (tloop 112)) @@ (p2 50 100))
+r1 = animate $ showB (metronome 112) @@ (p2 50 50) $$ (showB time @@ (p2 50 150))
 
 --moving metronome
-amt1 = ((lift1 intToDouble) $ 10*(wrap 8 112)) -- this value should be observed at some point
-r2 = animate $ el (p2 amt1 0) (p2 (25+amt1) 25)
+amt1 = ((lift1 intToDouble) $ 10*(metronome 112)) -- this value should be observed at some point
+r2 = animate $ el (p2 amt1 0) (p2 (25+amt1) 25) $$ (showB (metronome 112) @@ (p2 100 100))
 
 --accumulating music objects
 --r3 = animate $ showB (accum (rest 0) (rkey ==> (\m -> (:+: (charToMusic m))))) @@ (p2 50 50)
