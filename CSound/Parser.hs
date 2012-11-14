@@ -8,15 +8,15 @@ import Text.Parsec.Pos (newPos)
 data Program = Program OptionsSection OrchestraSection ScoreSection
 data Tag = OpenTag String | CloseTag String -- <tagname>
 data Variable = LocalVar String | GlobalVar String -- </tagname>
-data OrchestraSection = 
+data OrchestraSection = OrchestraSection [OrchestraRow] OrchOut
+data OrchestraRow = 
 	InstrumentLabel Int | -- instr [instrID]
 	Definition Variable DefType Args | -- [a,k,i] [osctype] [args]
 	Equality Variable VExpression | -- [setupvar] = [val]
-	Out VExpression | -- out [instrname]
-	EndIn -- endin
+data OrchOut = Out VExpression -- out [instrname]
 data ScoreSection = ScoreSection [OscTable] [InstTable]
-data OscTable = OscTable String [Int]  -- f1 0 4096 10 1
-data InstTable = InstTable String [Int] -- i2 0 1 2000 4000 8000
+data OscTable = OscTable {ref::String, args::[Double]}  -- f1 0 4096 10 1
+data InstTable = InstTable String [Double] -- i2 0 1 2000 4000 8000
 
 data VExpression = 
 	RawVar Variable |
