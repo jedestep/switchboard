@@ -3,6 +3,7 @@ import Lexer
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.Parsec.Pos (newPos)
+import Data.Either
 
 --Abstract syntax tree
 data Program = Program OptionsSection OrchestraSection ScoreSection
@@ -12,11 +13,10 @@ data OrchestraSection = OrchestraSection [OrchestraRow] OrchOut
 data OrchestraRow = 
 	InstrumentLabel Int | -- instr [instrID]
 	Definition Variable DefType Args | -- [a,k,i] [osctype] [args]
-	Equality Variable VExpression | -- [setupvar] = [val]
+	Equality Variable VExpression -- [setupvar] = [val]
 data OrchOut = Out VExpression -- out [instrname]
-data ScoreSection = ScoreSection [OscTable] [InstTable]
-data OscTable = OscTable {ref::String, args::[Double]}  -- f1 0 4096 10 1
-data InstTable = InstTable String [Double] -- i2 0 1 2000 4000 8000
+data ScoreSection = ScoreSection [OscTable] deriving Show
+data OscTable = OscTable {ref::String, args::[Double]} deriving Show -- f1 0 4096 10 1
 
 data VExpression = 
 	RawVar Variable |
@@ -55,33 +55,45 @@ optBlock = optBlock
 
 scoreBlock :: TokenParser ScoreSection
 scoreBlock = do
+	openTag "CsScore"
 	a <- osctab
-	b <- insttab
-	isToken (genName "e")	
-	return $ ScoreSection a b
+	term
+	closeTag "CsScore"
+	return $ ScoreSection a 
 
 osctab :: TokenParser [OscTable]
-osctab = osctab
+osctab = manyTill osctab1 (try $ isToken (genName "e"))
 
-insttab :: TokenParser [InstTable]
-insttab = insttab
+osctab1 :: TokenParser OscTable
+osctab1 = do
+	(Name a) <- nam
+	b <- manyTill nam term
+	let b' = map numToDouble b
+	return $ OscTable a b'
+
+--insttab :: TokenParser [InstTable]
+--insttab = insttab
 
 openTag :: String -> TokenParser Tag
 openTag tn = do
-	gt
-	(Name a) <- nam
 	lt
+	(Name a) <- nam
+	gt
+	term
 	case a of
-	 tn -> return $ OpenTag tn
+	 _ | a==tn -> return $ OpenTag tn
+	 _ -> error $ "unexpected tag name " ++ a
 	 
 closeTag :: String -> TokenParser Tag
 closeTag tn = do
-	gt
+	lt
 	divis
 	(Name a) <- nam
-	lt
+	gt
+	term
 	case a of
-	 tn -> return $ OpenTag tn
+	 _ | a==tn -> return $ CloseTag tn
+	 _ -> error $ "unexpected tag name " ++ a
 
 --utility
 isToken :: (Token -> Bool) -> TokenParser Token
@@ -97,7 +109,7 @@ operator (Punct x) = case x of
 
 genName :: String -> (Token -> Bool)
 genName nm = (\x -> case x of
-			Name nm -> True
+			Name z | nm == z -> True
 			_	-> False)						
 isFor x = case x of
 		Name "for"	-> True
@@ -176,3 +188,14 @@ lt = isToken isLt
 
 strToInt :: String -> Int
 strToInt s = read s
+
+numToDouble :: Token -> Double
+numToDouble (Name x) = (fromIntegral . toInteger . strToInt) x
+
+--testing
+parseProgram x = parse program "?" (getTokenProgram x)
+parseScoreBlock x = parse scoreBlock "?" (getTokenProgram x)
+
+testIO file prs = do
+	a <- readFile file
+	return $ prs a
