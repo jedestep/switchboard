@@ -189,13 +189,18 @@ lt = isToken isLt
 strToInt :: String -> Int
 strToInt s = read s
 
-numToDouble :: Token -> Double
+numToDouble :: Token -> Double --be cautious
 numToDouble (Name x) = (fromIntegral . toInteger . strToInt) x
+
+removeInstruments :: ScoreSection -> ScoreSection
+removeInstruments (ScoreSection b) = ScoreSection $ filter (\a -> ((ref a) !! 0) == 'f') b
 
 --testing
 parseProgram x = parse program "?" (getTokenProgram x)
-parseScoreBlock x = parse scoreBlock "?" (getTokenProgram x)
+parseScoreBlock x = case parse scoreBlock "?" (getTokenProgram x) of
+			Left x -> error $ "Encountered parse error: " ++ show x
+			Right x -> removeInstruments x
 
-testIO file prs = do
+testParseIO file prs = do
 	a <- readFile file
 	return $ prs a

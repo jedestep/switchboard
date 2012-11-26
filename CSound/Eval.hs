@@ -18,11 +18,16 @@ tableGen ot = let nam = ref ot
 
 
 --tests
-o1 = OscTable { ref = "f1",
-		args = [0,4096,10,1,0.5,0.33] }
+testEvalIO file prs ev = do
+	a <- readFile file
+	let (ScoreSection b) = prs a
+	let z = map ev b
+	return $ map g z where
+	g (tab, pha) = proc () -> do
+		s <- osc tab pha -< 440
+		outA -< s
 		
-t1 :: AudSF () Double
-t1 = let (a1, a2) = tableGen o1 in 
+{-t1 = let (a1, a2) = tableGen o1 in 
 	proc () -> do
 	s <- osc a1 a2 -< 440
-	outA -< s
+	outA -< s-}
