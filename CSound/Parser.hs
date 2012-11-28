@@ -6,7 +6,7 @@ import Text.Parsec.Pos (newPos)
 import Data.Either
 
 --Abstract syntax tree
-data Program = Program OptionsSection OrchestraSection ScoreSection
+data Program = Program OrchestraSection ScoreSection
 data Tag = OpenTag String | CloseTag String -- <tagname>
 data Variable = LocalVar String | GlobalVar String -- </tagname>
 data OrchestraSection = OrchestraSection [OrchestraRow] OrchOut
@@ -25,12 +25,7 @@ data VExpression =
 	VExpression :-: VExpression |
 	VExpression :*: VExpression |
 	VExpression :/: VExpression 
-data OptionsSection = 
-	Flags |
-	OutFile String 
-data Flag = Flag Char
 	
-type Flags = [Flag]
 type Args = [VExpression]
 type DefType = String	
 
@@ -41,17 +36,21 @@ type TokenParser a = GenParser Token () a
 program :: TokenParser Program
 program = do
 	openTag "CsoundSynthesizer"
-	a <- optBlock
-	b <- orchBlock
-	c <- scoreBlock
+	a <- orchBlock
+	b <- scoreBlock
 	closeTag "CsoundSynthesizer"
-	return $ Program a b c
+	return $ Program a b
 	
 orchBlock :: TokenParser OrchestraSection
-orchBlock = orchBlock
+orchBlock = do
+	openTag "CsInstruments"
+	a <- insttab
+	b <- vexp
+	closeTag "CsInstruments"
+	return $ OrchestraSection a (Out b)
 	
-optBlock :: TokenParser OptionsSection
-optBlock = optBlock
+insttab = insttab
+vexp = vexp
 
 scoreBlock :: TokenParser ScoreSection
 scoreBlock = do
@@ -70,9 +69,6 @@ osctab1 = do
 	b <- manyTill nam term
 	let b' = map numToDouble b
 	return $ OscTable a b'
-
---insttab :: TokenParser [InstTable]
---insttab = insttab
 
 openTag :: String -> TokenParser Tag
 openTag tn = do

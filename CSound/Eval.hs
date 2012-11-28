@@ -3,6 +3,7 @@ module Eval where
 import Euterpea 
 import Parser
 import Control.Arrow ((<<<), (>>>), arr)
+import System.IO.Unsafe
 
 type AudSF a b = SigFun AudRate a b
 
@@ -18,7 +19,8 @@ tableGen ot = let nam = ref ot
 
 
 --tests
-testEvalIO file prs ev = do
+testEvalScoreIO :: FilePath -> (String -> ScoreSection) -> (OscTable -> (Table, Double)) -> [AudSF () Double]
+testEvalScoreIO file prs ev = unsafePerformIO $ do
 	a <- readFile file
 	let (ScoreSection b) = prs a
 	let z = map ev b
