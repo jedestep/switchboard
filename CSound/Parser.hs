@@ -6,25 +6,24 @@ import Text.Parsec.Pos (newPos)
 import Data.Either
 
 --Abstract syntax tree
-data Program = Program OrchestraSection ScoreSection
+data Program = Program {orch::OrchestraSection, scrs::ScoreSection} deriving Show
 data Tag = OpenTag String | CloseTag String -- <tagname>
-data Variable = LocalVar String | GlobalVar String -- </tagname>
-data OrchestraSection = OrchestraSection [OrchestraRow] OrchOut
+data OrchestraSection = OrchestraSection [InstBlock] deriving Show
+data InstBlock = InstBlock {ilabel::Int, orows::[OrchestraRow]} deriving Show
 data OrchestraRow = 
-	InstrumentLabel Int | -- instr [instrID]
-	Definition Variable DefType Args | -- [a,k,i] [osctype] [args]
-	Equality Variable VExpression -- [setupvar] = [val]
-data OrchOut = Out VExpression -- out [instrname]
+	Definition String DefType Args | -- [a,k,i] [osctype] [args]
+	Equality String VExpression | -- [setupvar] = [val]
+	Out VExpression deriving Show -- out [instrname]
 data ScoreSection = ScoreSection [OscTable] deriving Show
 data OscTable = OscTable {ref::String, args::[Double]} deriving Show -- f1 0 4096 10 1
 
 data VExpression = 
-	RawVar Variable |
-	RawInt Int |
+	Var String |
+	Lit Double |
 	VExpression :+: VExpression |
 	VExpression :-: VExpression |
 	VExpression :*: VExpression |
-	VExpression :/: VExpression 
+	VExpression :/: VExpression deriving Show
 	
 type Args = [VExpression]
 type DefType = String	
@@ -44,13 +43,85 @@ program = do
 orchBlock :: TokenParser OrchestraSection
 orchBlock = do
 	openTag "CsInstruments"
-	a <- insttab
-	b <- vexp
+	a <- many1 insttab
 	closeTag "CsInstruments"
-	return $ OrchestraSection a (Out b)
+	optional term
+	return $ OrchestraSection a
 	
-insttab = insttab
-vexp = vexp
+insttab :: TokenParser InstBlock
+insttab = do
+	a <- instlabel
+	term
+	b <- orchrows
+	term
+	return $ InstBlock a b
+	
+instlabel :: TokenParser Int
+instlabel = do
+	isToken $ genName "instr"
+	(Number a) <- num
+	return (strToInt a)
+	
+orchrows :: TokenParser [OrchestraRow]
+orchrows = do
+	try ( do 
+		a <- orchrow
+		term
+		isToken (genName "endin") 
+		return [a]
+	    )
+	    <|> do
+		a <- orchrow
+		term
+		b <- orchrows
+		return $ a:b
+	    
+orchrow :: TokenParser OrchestraRow
+orchrow = do
+	(Name a) <- nam
+	if a=="out" 
+	 then (do{b <- vexp; return $ Out b;}) 
+	 else
+	  try ( do
+		(Name funct) <- nam
+		b <- sepBy vexp comma
+		return $ Definition a funct b
+	      )
+	      <|>
+	      try ( do
+		eql
+		b <- vexp
+		return $ Equality a b
+	      )
+	      <?> (error "Invalid row in orchestra file: " ++ a)
+	
+
+exptable 	= 	[[inf (Punct "*") (\a b -> a :*: b) AssocLeft, inf (Punct "/") (:/:) AssocLeft],
+				[inf (Punct "+") (:+:) AssocLeft, inf (Punct "-") (:-:) AssocLeft]]
+			where
+				inf s f assoc = Infix (operator s >> return f) assoc
+
+vexp :: TokenParser VExpression
+vexp = buildExpressionParser exptable xpr2
+
+xpr2 = (wrappedExpr <|> bareVar <|> bareNum)
+
+wrappedExpr :: TokenParser VExpression
+wrappedExpr = do
+		openParen
+		a <- vexp
+		closeParen
+		return a
+
+bareVar :: TokenParser VExpression
+bareVar = do
+	(Name a) <- nam
+	return $ Var a
+
+bareNum :: TokenParser VExpression
+bareNum = do
+	(Number a) <- num
+	return $ Lit (intToDouble . strToInt $ a)
 
 scoreBlock :: TokenParser ScoreSection
 scoreBlock = do
@@ -66,7 +137,7 @@ osctab = manyTill osctab1 (try $ isToken (genName "e"))
 osctab1 :: TokenParser OscTable
 osctab1 = do
 	(Name a) <- nam
-	b <- manyTill nam term
+	b <- manyTill (nam <|> num) term
 	let b' = map numToDouble b
 	return $ OscTable a b'
 
@@ -185,17 +256,26 @@ lt = isToken isLt
 strToInt :: String -> Int
 strToInt s = read s
 
+intToDouble :: Int -> Double
+intToDouble = fromIntegral . toInteger
+
 numToDouble :: Token -> Double --be cautious
 numToDouble (Name x) = (fromIntegral . toInteger . strToInt) x
+numToDouble (Number x) = (fromIntegral . toInteger . strToInt) x
 
 removeInstruments :: ScoreSection -> ScoreSection
 removeInstruments (ScoreSection b) = ScoreSection $ filter (\a -> ((ref a) !! 0) == 'f') b
 
 --testing
-parseProgram x = parse program "?" (getTokenProgram x)
+parseProgram x = case parse program "?" (getTokenProgram x) of
+			Left x -> error $ "Encountered parse error: " ++ show x
+			Right x -> x
 parseScoreBlock x = case parse scoreBlock "?" (getTokenProgram x) of
 			Left x -> error $ "Encountered parse error: " ++ show x
 			Right x -> removeInstruments x
+parseOrchBlock x = case parse orchBlock "?" (getTokenProgram x) of
+			Left x -> error $ "Encountered parse error: " ++ show x
+			Right x -> show x
 
 testParseIO file prs = do
 	a <- readFile file
