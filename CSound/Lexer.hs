@@ -15,16 +15,21 @@ lexedProgram = sepEndBy (many wspace >> lexTokenList) (many1 space)
 --a single token
 lexToken :: Parse Token
 lexToken = do
+		try (do
+			optional (many wspace)
+			a <- many1 digit
+			try (do
+				char '.' --we allow doubles!
+				b <- many1 digit
+				return (Number $ a++"."++b))
+			    <|>
+			    return (Number a))
+	<|>
 		try (do 
 			optional (many wspace)
 			a <- many1 alphaNum
 			return (Name a)
 			)
-	<|> 
-		try (do
-			optional (many wspace)
-			a <- many1 digit
-			return (Number a))
 	<|> 	do
 			optional (many wspace)
 			a <- noneOf " \t\v\f\r\n"
