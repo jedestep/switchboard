@@ -2,54 +2,48 @@
 module Eval2 where
 import Euterpea 
 import Parser
-import Control.Arrow ((<<<), (>>>), arr)
+import Control.Arrow ((<<<), (>>>), arr, (<<^))
 import Control.Monad
 import System.IO.Unsafe
+import Debug.Trace
 import qualified Data.Map as Map
 
-data GenSF a = GenSF (AudSF a Double)
+type GenSF = AudSF [Double] Double
 
-data EvalM a b = EvalM (EMap a -> (EMap a, b))
+data CSEnv a = CSEnv (EMap -> (EMap, a))
 
 type AudSF a b = SigFun AudRate a b
-type EMap a = (Map.Map String a)
-
---typeclass definition
-class SigFunInput a
-
-instance SigFunInput Double
-instance SigFunInput ()
-instance (SigFunInput a, SigFunInput b) => SigFunInput (a, b)
+type EMap = (Map.Map String GenSF)
 
 --monad definition
-getMapState :: EvalM a (EMap a)
-getMapState = EvalM (\m -> (m, m))
+getMapState :: CSEnv EMap
+getMapState = CSEnv (\m -> (m, m))
 
-putMapState :: EMap b -> EvalM b ()
-putMapState m = EvalM $ const (m, ())
+putMapState :: EMap -> CSEnv ()
+putMapState m = CSEnv $ const (m, ())
 
-runEval :: EMap b -> EvalM b a -> (EMap b, a)
-runEval m (EvalM f) = f m
+runEval :: EMap -> CSEnv a -> (EMap, a)
+runEval m (CSEnv f) = f m
 
-instance Monad (EvalM a) where
-	return v = EvalM (\m -> (m, v))
-	e >>= f = EvalM (\m0 -> let (m1, v) = runEval m0 e in
+instance Monad (CSEnv) where
+	return v = CSEnv (\m -> (m, v))
+	e >>= f = CSEnv (\m0 -> let (m1, v) = runEval m0 e in
 			runEval m1 (f v))
 
 --monad help functions
-search :: String -> EvalM (GenSF a) (GenSF a)
+search :: String -> CSEnv GenSF
 search key = do
 	a <- getMapState
 	return $ a Map.! key
 	
-store :: String -> a -> EvalM a ()
+store :: String -> GenSF -> CSEnv ()
 store key val = do
 	a <- getMapState
 	putMapState $ Map.insert key val a
 	
 --orchestra files
 
-define :: OrchestraRow -> EvalM (GenSF a) ()
+define :: OrchestraRow -> CSEnv ()
 define (Definition s t a) = case t of
 	"oscil" -> do 
 			sf <- oscil $ (lit $ last a)
@@ -65,10 +59,10 @@ express vx = do
 	 (Var v) -> search $ v
 	 --TODO define cases
 	
-oscil :: Integer -> EvalM (GenSF a) (GenSF a)
+oscil :: Integer -> CSEnv GenSF
 oscil num = do 
-	(GenSF sf) <- search $ 'f':(show num) --assumes structured oscillator names
-	return $ GenSF $ oscil1 sf where
+	sf <- search $ 'f':(show num) --assumes structured oscillator names
+	return $ oscil1 sf where
 		--oscil1 :: AudSF a Double -> AudSF a Double
 		oscil1 i = proc a0 -> do
 			s <- i -< a0
@@ -86,33 +80,32 @@ tableGen ot = let nam = ref ot
 			10 -> (tableSinesN (round q) hms, t0, nam) --GEN10 sin generator
 			--fill in more types of table
 	
-oscillators :: ScoreSection -> [(String, AudSF Double Double)]
+oscillators :: ScoreSection -> [(String, GenSF)]
 oscillators (ScoreSection scs) = map g $ map tableGen scs where
-	g (tab, pha, nam) = (nam, osc tab pha)
+	g (tab, pha, nam) = (nam, (osc tab pha) <<^ head)
 	
 --evaluation
-eval :: Program -> EvalM (GenSF a) (GenSF a)
+eval :: Program -> CSEnv GenSF
 eval prog = let score = scrs prog
 		(OrchestraSection os) = orch prog in
-	     do
-		return $ map (\(n, sf) -> store n sf) (map (\(s, sf) -> (s, GenSF sf)) (oscillators score))
-		return $ map (map define) (map orows os)
+	    do
+		mapM (\(n, sf) -> store n sf) (oscillators score)
+		mapM define (orows $ head os) --todo fix this filth
 		search "__OUT"
-
-evaluate :: Program -> (GenSF a)
+		
+evaluate :: Program -> (GenSF)
 evaluate p = snd $ runEval (Map.empty) (eval p)
+
+evalCsound file = unsafePerformIO $ do
+	a <- readFile file
+	return $ evaluate $ parseProgram a
 
 --tests
 
-t1 = let (GenSF a) = testEvaluateIO "example1.csd.test" in
+t1 = let a = evalCsound "example1.csd.test" in
 	proc () -> do
-	s <- a -< 440
+	s <- a -< [525]
 	outA -< s
-
-testEvaluateIO :: String -> GenSF a
-testEvaluateIO file = unsafePerformIO $ do
-	a <- readFile file
-	return $ evaluate $ parseProgram a
 
 testEvalScoreIO :: FilePath -> (String -> ScoreSection) -> (OscTable -> (Table, Double)) -> [AudSF () Double]
 testEvalScoreIO file prs ev = unsafePerformIO $ do
