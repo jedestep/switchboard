@@ -269,7 +269,7 @@ removeInstruments (ScoreSection b) = ScoreSection $ filter (\a -> ((ref a) !! 0)
 --testing
 parseProgram x = case parse program "?" (getTokenProgram x) of
 			Left x -> error $ "Encountered parse error: " ++ show x
-			Right x -> x
+			Right x -> x {scrs = removeInstruments $ scrs x}
 parseScoreBlock x = case parse scoreBlock "?" (getTokenProgram x) of
 			Left x -> error $ "Encountered parse error: " ++ show x
 			Right x -> removeInstruments x
