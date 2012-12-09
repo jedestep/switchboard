@@ -315,8 +315,9 @@ isOn evOn evOff = switch rFalse ((evOn -=> rTrue) .|. (evOff -=> rFalse))
 switch :: Behavior a -> Event (Behavior a) -> Behavior a
 switch (Behavior bf) (Event ef) = f bf ef where
 	f a b = Behavior (\s -> case b s of
-				(_, Just (Behavior bf')) -> (f bf' b, snd $ bf' s)
-				(_, Nothing) -> (f a b, snd $ a s)
+				((Event b'), Just (Behavior bf')) -> (f bf' b', snd $ bf' s)
+				((Event b'), Nothing) -> let (Behavior a', av) = a s in
+							 (f a' b', av)
 			)
 
 until :: Behavior a -> Event b -> (b -> Behavior a) -> Behavior a
