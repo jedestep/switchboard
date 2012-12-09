@@ -2,27 +2,30 @@
 module Eval2 where
 import Euterpea 
 import Parser
-import Control.Arrow ((<<<), (>>>), arr, (<<^))
+import Control.Arrow ((<<<), (>>>), arr, (<<^), returnA, (^<<))
 import Control.Monad
 import System.IO.Unsafe
 import Debug.Trace
+import Data.List
 import qualified Data.Map as Map
 
 type GenSF = AudSF [Double] Double
 
-data CSEnv a = CSEnv (EMap -> (EMap, a))
+data CSEnv a = CSEnv (SFMap -> (SFMap, a))
 
 type AudSF a b = SigFun AudRate a b
-type EMap = (Map.Map String GenSF)
+type SFMap = (Map.Map String GenSF)
+
+data InputType = User | Internal | Constant
 
 --monad definition
-getMapState :: CSEnv EMap
+getMapState :: CSEnv SFMap
 getMapState = CSEnv (\m -> (m, m))
 
-putMapState :: EMap -> CSEnv ()
+putMapState :: SFMap -> CSEnv ()
 putMapState m = CSEnv $ const (m, ())
 
-runEval :: EMap -> CSEnv a -> (EMap, a)
+runEval :: SFMap -> CSEnv a -> (SFMap, a)
 runEval m (CSEnv f) = f m
 
 instance Monad (CSEnv) where
@@ -32,12 +35,12 @@ instance Monad (CSEnv) where
 
 --monad help functions
 search :: String -> CSEnv GenSF
-search key = do
+search key = trace ("searching "++(show key)) $ do
 	a <- getMapState
 	return $ a Map.! key
 	
 store :: String -> GenSF -> CSEnv ()
-store key val = do
+store key val = trace ("storing "++(show key)) $ do
 	a <- getMapState
 	putMapState $ Map.insert key val a
 	
@@ -46,28 +49,68 @@ store key val = do
 define :: OrchestraRow -> CSEnv ()
 define (Definition s t a) = case t of
 	"oscil" -> do 
-			sf <- oscil $ (lit $ last a)
+			let args = map express a
+			sf <- oscil $ args
 			store s sf
-			where lit (Lit a) = round a
+			--where lit (Lit a) = round a
 define (Out s) = do
-	sf <- express s
+	sf <- search $ express s
 	store "__OUT" sf
 
+express :: VExpression -> String
 express vx = do 
 	case vx of
-	 (Lit l) -> search $ show l
-	 (Var v) -> search $ v
+	 (Lit l) -> show l
+	 (Var v) -> v
 	 --TODO define cases
 	
-oscil :: Integer -> CSEnv GenSF
-oscil num = do 
-	sf <- search $ 'f':(show num) --assumes structured oscillator names
+oscil :: [String] -> CSEnv GenSF
+oscil nums = trace ("oscil "++(show nums)) $ if (length nums) /= 3 then error "The wrong number of arguments were given to oscil!" else
+	do 
+	let fn = show $ round $ (read $ last nums :: Double)
+	sf <- search $ 'f':fn --assumes structured oscillator names
 	return $ oscil1 sf where
-		--oscil1 :: AudSF a Double -> AudSF a Double
-		oscil1 i = proc a0 -> do
-			s <- i -< a0
+		oscil1 f = proc a0 -> do
+			s <- f -< [head a0]
 			outA -< s
 
+wire :: [OrchestraRow] -> OrchestraRow -> CSEnv GenSF
+wire rs (Definition s t a) = do
+	f <- search s
+	let argn = init a
+	case t of
+	  "oscil" -> do
+			let (arg0:arg1:_) = map (\a' -> case (itype a') of
+					Constant -> trace ("Constant "++a') $ return (arr (\[] -> [read a' :: Double]))
+					User	-> do {f' <- search a'; return ((\c -> [c]) ^<< f')}
+					Internal -> (do 
+					  let (Just r') = find (\(Definition s' _ _) -> s' == a') rs
+					  f' <- wire rs r'
+					  return ((\c -> [c]) ^<< f'))) (map express argn)
+			arg0' <- arg0
+			arg1' <- arg1
+			return $ arg0' >>> f
+wire rs (Out a) = do
+	let (Just r') = find (\(Definition s' _ _) -> s' == (express a)) rs
+	f' <- trace "wiring the Out" $ wire rs r'
+	return f'
+
+itype :: String -> InputType		
+itype (x:_) = case x of
+	'p' -> User
+	'a' -> Internal
+	'k' -> Internal
+	'i' -> Internal
+	'0' -> Constant --todo fix this filth also
+	'1' -> Constant
+	'2' -> Constant
+	'3' -> Constant
+	'4' -> Constant
+	'5' -> Constant
+	'6' -> Constant
+	'7' -> Constant
+	'8' -> Constant
+	'9' -> Constant
 --score files
 tableGen :: OscTable -> (Table, Double, String)
 tableGen ot = let nam = ref ot
@@ -78,7 +121,7 @@ tableGen ot = let nam = ref ot
 		  hms = drop 3 a in
 		case typ of
 			10 -> (tableSinesN (round q) hms, t0, nam) --GEN10 sin generator
-			--fill in more types of table
+			--todo fill in more types of table
 	
 oscillators :: ScoreSection -> [(String, GenSF)]
 oscillators (ScoreSection scs) = map g $ map tableGen scs where
@@ -90,22 +133,27 @@ eval prog = let score = scrs prog
 		(OrchestraSection os) = orch prog in
 	    do
 		mapM (\(n, sf) -> store n sf) (oscillators score)
-		mapM define (orows $ head os) --todo fix this filth
-		search "__OUT"
+		let rs = orows $ head os --todo fix this megafilth
+		let out = last rs
+		mapM define rs 
+		wire rs out
 		
-evaluate :: Program -> (GenSF)
-evaluate p = snd $ runEval (Map.empty) (eval p)
+		
+evaluate :: Program -> [Double] -> GenSF
+evaluate p a = snd $ runEval (loadArgs Map.empty "p4" (map arr (map (\b -> (\[] -> b)) a))) (eval p)
 
-evalCsound file = unsafePerformIO $ do
+loadArgs m _ [] = m
+loadArgs m v (x:xs) = loadArgs (Map.insert v x m) (incp v) xs where
+	incp v1 = 'p':(show (1 + (read $ tail v1 :: Int)))
+
+evalCsound file args = unsafePerformIO $ do
 	a <- readFile file
-	return $ evaluate $ parseProgram a
+	return $ evaluate (parseProgram a) args
+
+blank :: AudSF () [Double]	
+blank = arr (\() -> [])
 
 --tests
-
-t1 = let a = evalCsound "example1.csd.test" in
-	proc () -> do
-	s <- a -< [525]
-	outA -< s
 
 testEvalScoreIO :: FilePath -> (String -> ScoreSection) -> (OscTable -> (Table, Double)) -> [AudSF () Double]
 testEvalScoreIO file prs ev = unsafePerformIO $ do

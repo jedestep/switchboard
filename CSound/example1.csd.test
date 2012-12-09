@@ -1,7 +1,7 @@
 <CsoundSynthesizer>
   <CsInstruments>
         instr 1 
-    a1     oscil p4, p5, 1   ; Test derp.
+    a1     oscil 220, 10000, 1   ; Test derp.
     out a1                   ; Output.
     endin
   </CsInstruments> 
