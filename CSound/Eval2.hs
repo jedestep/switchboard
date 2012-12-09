@@ -35,12 +35,12 @@ instance Monad (CSEnv) where
 
 --monad help functions
 search :: String -> CSEnv GenSF
-search key = trace ("searching "++(show key)) $ do
+search key = do
 	a <- getMapState
 	return $ a Map.! key
 	
 store :: String -> GenSF -> CSEnv ()
-store key val = trace ("storing "++(show key)) $ do
+store key val = do
 	a <- getMapState
 	putMapState $ Map.insert key val a
 	
@@ -65,14 +65,11 @@ express vx = do
 	 --TODO define cases
 	
 oscil :: [String] -> CSEnv GenSF
-oscil nums = trace ("oscil "++(show nums)) $ if (length nums) /= 3 then error "The wrong number of arguments were given to oscil!" else
+oscil nums = if (length nums) /= 3 then error "The wrong number of arguments were given to oscil!" else
 	do 
 	let fn = show $ round $ (read $ last nums :: Double)
 	sf <- search $ 'f':fn --assumes structured oscillator names
-	return $ oscil1 sf where
-		oscil1 f = proc a0 -> do
-			s <- f -< [head a0]
-			outA -< s
+	return $ sf 
 
 wire :: [OrchestraRow] -> OrchestraRow -> CSEnv GenSF
 wire rs (Definition s t a) = do
@@ -81,7 +78,7 @@ wire rs (Definition s t a) = do
 	case t of
 	  "oscil" -> do
 			let (arg0:arg1:_) = map (\a' -> case (itype a') of
-					Constant -> trace ("Constant "++a') $ return (arr (\[] -> [read a' :: Double]))
+					Constant -> return (arr (\_ -> [read a' :: Double]))
 					User	-> do {f' <- search a'; return ((\c -> [c]) ^<< f')}
 					Internal -> (do 
 					  let (Just r') = find (\(Definition s' _ _) -> s' == a') rs
@@ -89,10 +86,15 @@ wire rs (Definition s t a) = do
 					  return ((\c -> [c]) ^<< f'))) (map express argn)
 			arg0' <- arg0
 			arg1' <- arg1
-			return $ arg0' >>> f
+			let m1 = (head ^<< arg1') <<^ (\c -> [c])
+			return $ proc _ -> do
+				  a0 <- arg0' -< []
+				  s <- f -< a0
+				  a1 <- m1 -< 0
+				  outA -< s * (a1/10000)
 wire rs (Out a) = do
 	let (Just r') = find (\(Definition s' _ _) -> s' == (express a)) rs
-	f' <- trace "wiring the Out" $ wire rs r'
+	f' <- wire rs r'
 	return f'
 
 itype :: String -> InputType		
@@ -146,9 +148,9 @@ loadArgs m _ [] = m
 loadArgs m v (x:xs) = loadArgs (Map.insert v x m) (incp v) xs where
 	incp v1 = 'p':(show (1 + (read $ tail v1 :: Int)))
 
-evalCsound file args = unsafePerformIO $ do
+evalCsound file args = blank >>> (unsafePerformIO $ do
 	a <- readFile file
-	return $ evaluate (parseProgram a) args
+	return $ evaluate (parseProgram a) args)
 
 blank :: AudSF () [Double]	
 blank = arr (\() -> [])
