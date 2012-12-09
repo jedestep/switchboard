@@ -1,12 +1,12 @@
 <CsoundSynthesizer>
   <CsInstruments>
         instr 1 
-    a1     oscil 220, 2500, 1   ; Test derp.
+    a1     oscil p4, p5, 1   ; Test derp.
     out a1                   ; Output.
     endin
   </CsInstruments> 
   <CsScore>
-    f1 0 8192 10 1           ; Table containing a sine wave. Built-in generator 10 produces a sum of sinusoids, here only one.
+    f1 0 8192 10 1 0 0.5 0 0.33       ; Table containing a sine wave. Built-in generator 10 produces a sum of sinusoids, here only one.
     i1 0 1 20000 1000        ; Play one second of one kHz at amplitude 20000.
     e
   </CsScore>

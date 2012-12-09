@@ -260,8 +260,8 @@ intToDouble :: Int -> Double
 intToDouble = fromIntegral . toInteger
 
 numToDouble :: Token -> Double --be cautious
-numToDouble (Name x) = (fromIntegral . toInteger . strToInt) x
-numToDouble (Number x) = (fromIntegral . toInteger . strToInt) x
+numToDouble (Name x) = read x
+numToDouble (Number x) = read x
 
 removeInstruments :: ScoreSection -> ScoreSection
 removeInstruments (ScoreSection b) = ScoreSection $ filter (\a -> ((ref a) !! 0) == 'f') b

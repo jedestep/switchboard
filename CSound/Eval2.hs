@@ -142,7 +142,7 @@ eval prog = let score = scrs prog
 		
 		
 evaluate :: Program -> [Double] -> GenSF
-evaluate p a = snd $ runEval (loadArgs Map.empty "p4" (map arr (map (\b -> (\[] -> b)) a))) (eval p)
+evaluate p a = snd $ runEval (loadArgs Map.empty "p4" (map arr (map (\b -> (\_ -> b)) a))) (eval p)
 
 loadArgs m _ [] = m
 loadArgs m v (x:xs) = loadArgs (Map.insert v x m) (incp v) xs where
