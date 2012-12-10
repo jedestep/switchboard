@@ -1,6 +1,7 @@
 {-# LANGUAGE Arrows #-}
 module Eval2 where
 import Euterpea 
+import qualified Euterpea.IO.Audio.CSound as CS
 import Parser
 import Control.Arrow ((<<<), (>>>), arr, (<<^), returnA, (^<<))
 import Control.Monad
