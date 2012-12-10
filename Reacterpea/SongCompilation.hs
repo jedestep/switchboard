@@ -26,6 +26,15 @@ compileNote ((Ptch pitch), (t0, t1)) = (rest t0) :+: (note t1 pitch)
 compileNote ((Perc pSound), (t0, t1)) = instrument Percussion $ (rest t0) :+: (perc pSound t1)
 compileNote ((Chrd chord), (t0, t1)) = (rest t0) :+: (foldl (:=:) (rest 0) (map (\ pitch -> (note t1 pitch)) chord))
 
+-- TO AND FROM EUTERPEA ______________________________________________________________________________________________
+
+class StructComp a where
+    toEuterpea :: a -> Music Pitch
+    fromEuterpea :: Music Pitch -> a
+    
+instance StructComp Phrase where
+    toEuterpea x = compilePhrase (0, x)
+
 -- EXAMPLES __________________________________________________________________________________________________________
 
 -- EXAMPLE 1: test compileNote

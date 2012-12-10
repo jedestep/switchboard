@@ -27,6 +27,7 @@ transPhrase (pSeq,nSeq) aP = (transPitchSequence pSeq aP, nSeq)
 -- A measure is a list of phrases that start during the measure, paired with their start time (fractional of the measure)
 type Measure = [(Rational, Phrase)]
 
+-- A PartItem is either information about the next measure to be played or a modification (e.g. volume) to me made to subsequent measures.
 data PartItem = Meas Measure | PhAt PhraseAttribute
 
 -- A part is a list of measures to be played in time after one another

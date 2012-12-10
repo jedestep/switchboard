@@ -1,7 +1,12 @@
+module Song1 where
+
 import Data.Ratio
 import Euterpea
 import SongExpression
 import SongCompilation
+import ReactiveInstruments
+import FRP_IO
+import SOE
 
 numMeasures = 12
 
@@ -36,7 +41,7 @@ drumMeasure = [(0,hatPhrase)
               
 drumPart = (Percussion, take numMeasures $ repeat (Meas drumMeasure))
               
-drum = compilePart drumPart
+drum = SongCompilation.compilePart drumPart
 -- _________________________________________ Bass Part
 
 bassPitchSeq1 = [Ptch (E,3), Ptch (Af,3), Ptch (B,3), Ptch (Cs,4), Ptch (D,4), Ptch (Cs,4), Ptch (B,3), Ptch (Af,3)]
@@ -112,4 +117,13 @@ pianoPart = (AcousticGrandPiano,
              ]
             )
 
-song1 = (5%4,[drumPart,bassPart,pianoPart])
+playSong = play $ (rest 1) :+: m where
+    m = compileSong (5%4,[drumPart,bassPart,pianoPart])
+
+playSongAsInstruments = animate $ return $ 
+            (rInstrument blue (p2 10 10) $ ReactiveInstruments.compilePart pianoPart) $$
+            (rInstrument green (p2 70 10) $ ReactiveInstruments.compilePart bassPart) $$
+            (rInstrument red (p2 130 10) $ ReactiveInstruments.compilePart drumPart)
+            
+playExample = do playSongAsInstruments
+                 playSong

@@ -5,7 +5,6 @@ module SOE (
   Window,
   openWindow,
   getWindowSize,
-  getWindowSizeGL,
   clearWindow,
   drawInWindow,
   drawInWindowNow,
@@ -21,7 +20,6 @@ module SOE (
   overGraphics,
   Color (..),
   withColor,
-  withColor3,
   text,
   Point,
   ellipse,
@@ -68,9 +66,7 @@ instance Show Graphic where
   show (Graphic s _) = s     
 
 initialized, opened :: MVar Bool
-{-# NOINLINE initialized #-}
 initialized = unsafePerformIO (newMVar False)
-{-# NOINLINE opened #-}
 opened = unsafePerformIO (newMVar False)
 
 initialize = do
@@ -130,9 +126,6 @@ openWindowEx title position size (RedrawMode useDoubleBuffer) = do
     graphicVar = graphicVar,
     eventsChan = eventsChan
   }
-
-getWindowSizeGL :: Window -> IO GL.Size
-getWindowSizeGL win = GL.get GLFW.windowSize
 
 getWindowSize :: Window -> IO Size
 getWindowSize win = do
@@ -212,13 +205,6 @@ overGraphic (Graphic o over) (Graphic b base) = Graphic ("(" ++ o ++ " over " ++
 overGraphics :: [Graphic] -> Graphic
 overGraphics = foldl1 overGraphic
 
-colorWrap c' m = do
-  c <- GL.get GL.currentColor
-  GL.color c'
-  r <- m
-  GL.currentColor GL.$=! c
-  return r
-
 colorToRGB :: Color -> GL.Color3 GLfloat
 colorToRGB Black   = GL.Color3 0 0 0
 colorToRGB Blue    = GL.Color3 0 0 1
@@ -231,11 +217,7 @@ colorToRGB White   = GL.Color3 1 1 1
 
 withColor :: Color -> Graphic -> Graphic
 withColor color (Graphic g' g) = Graphic ("(withColor " ++ show color ++ " " ++ g' ++ ")")
-                                         (colorWrap (colorToRGB color) g)
-withColor3 :: GL.Color3 GLfloat -> Graphic -> Graphic
-withColor3 color (Graphic g' g) = Graphic ("(withColor3 " ++ show color ++ " " ++ g' ++ ")")
-                                          (colorWrap color g)
-
+                                         (GL.color (colorToRGB color) >> g)
 
 text :: Point -> String -> Graphic
 text (x,y) str = Graphic ("Text " ++ str ++ " at " ++ show (x,y)) $ GL.preservingMatrix $ do
