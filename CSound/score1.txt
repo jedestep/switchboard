@@ -1,5 +1,0 @@
-<CsScore>
-    f1 0 8192 10 1           ; Table containing a sine wave. Built-in generator 10 produces a sum of sinusoids, here only one.
-    i1 0 1 20000 1000        ; Play one second of one kHz at amplitude 20000.
-    e
-</CsScore>

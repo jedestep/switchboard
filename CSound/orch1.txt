@@ -1,6 +1,0 @@
-<CsInstruments>        
-        instr 1
-a1        oscil     p4, p5, 1           ; p5=freq
-        out     a1
-	endin
-</CsInstruments>
