@@ -1,5 +1,5 @@
 {-# LANGUAGE Arrows #-}
-module Eval2 where
+module Switchboard.CSound.Eval where
 import Euterpea 
 import qualified Euterpea.IO.Audio.CSound as CS
 import Parser
@@ -75,11 +75,11 @@ store key val = do
 --orchestra files
 
 define :: OrchestraRow -> CSEnv ()
-define (Definition s t a) = case t of
+define (Definition varName fType args) = case fType of
 	"oscil" -> do 
-			exp <- mapM express a
-			sf <- oscilD $ exp
-			store s sf
+			exp <- mapM express args
+			sigFun <- oscilD $ exp
+			store varName sigFun
 
 express :: VExpression -> CSEnv ValSF
 express vx = case vx of
@@ -100,50 +100,49 @@ oscilD nums = if (length nums) /= 3 then error "The wrong number of arguments we
 	do 
 	let (K l) = last nums
 	let fn = show $ round l
-	sf <- search $ 'f':fn --assumes structured oscillator names
-	return $ sf 
+	sigFun <- search $ 'f':fn --assumes structured oscillator names
+	return $ sigFun 
 
 resolve :: [OrchestraRow] -> String -> CSEnv ValSF
-resolve rs = (\a' -> case (itype a') of
-		Constant -> return $ GenSF (arr (\_ -> read a' :: Double))
+resolve rowList name = case (itype name) of
+		Constant -> return $ GenSF (arr (\_ -> read name :: Double))
 		User	-> do
-		  (K f') <- search a' --ensure that f' is a K
-		  return $ K f'
-		Internal -> (do --the blocker issue comes up here theoretically
-		  let (Just r') = find (\(Definition s' _ _) -> s' == a') rs
-		  (GenSF f') <- wire rs r' --ensure that f' is a GenSF
-		  return $ GenSF f'))
+		  (K val) <- search name --ensure that f' is a K
+		  return $ K val
+		Internal -> do --the blocker issue comes up here theoretically
+		  let (Just match) = find (\(Definition name1 _ _) -> name1 == name) rowList
+		  (GenSF val) <- wire rowList match --ensure that f' is a GenSF
+		  return $ GenSF val
 		  
 wire :: [OrchestraRow] -> OrchestraRow -> CSEnv ValSF
-wire rs r@(Definition s t a) = do
-	b <- isDefined s
-	if (not b) then define r else return ()
-	(GenSF f) <- search s
-	case t of
+wire rowList row@(Definition varName fType args) = do
+	def <- isDefined varName
+	if (not def) then define row else return ()
+	(GenSF val) <- search varName
+	case fType of
 	  "oscil" -> do
-		let args = map show (init a)
-		let (arg0:arg1:_) = map (resolve rs) args
+		let argv = map show (init args)
+		let (arg0:arg1:_) = map (resolve rowList) argv
 		arg0' <- arg0
 		arg1' <- arg1
 		let (m0:m1:_) = map (\a -> case a of
 					(K x) -> arr (\_ -> x)
 					(GenSF x) -> x) [arg0',arg1']
-		let res = GenSF $ proc _ -> do
+		let result = GenSF $ proc _ -> do
 			  a0 <- m0 -< []
-			  s <- f -< [a0]
+			  sigFun <- val -< [a0]
 			  a1 <- m1 -< []
-			  outA -< s * (a1/10000)
-		store s res
-		return res
+			  outA -< sigFun * (a1/10000)
+		store varName result
+		return result
 	 {- "linen" -> do
 		  
 		-}
-wire rs (Out a) = do
-	let r0 = unexpress a
-	let r1 = map (\z -> find (\(Definition s' _ _) -> (s' == z)) rs) r0
-	let r1' = map fromJust r1
-	mapM (wire rs) r1'
-	express a
+wire rowList (Out vx) = do
+	let vxVars = unexpress vx
+	let var = map fromJust (map (\z -> find (\(Definition name _ _) -> (name == z)) rowList) vxVars)
+	mapM (wire rowList) var
+	express vx
 
 itype :: String -> InputType		
 itype (x:_) = case x of
