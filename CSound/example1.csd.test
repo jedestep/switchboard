@@ -2,7 +2,8 @@
   <CsInstruments>
         instr 1 
     a1     oscil p4, p5, 1   ; Test derp.
-    out a1                   ; Output.
+    a2	   oscil p6, p7, 1
+    out a1+a2                  ; Output.
     endin
   </CsInstruments> 
   <CsScore>

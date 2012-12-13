@@ -23,10 +23,18 @@ data VExpression =
 	VExpression :+: VExpression |
 	VExpression :-: VExpression |
 	VExpression :*: VExpression |
-	VExpression :/: VExpression deriving Show
+	VExpression :/: VExpression 
 	
 type Args = [VExpression]
 type DefType = String	
+
+instance Show VExpression where
+	show (Var a) = a
+	show (Lit l) = show l
+	show (x :+: y) = (show x)++"+"++(show y)
+	show (x :-: y) = (show x)++"-"++(show y)
+	show (x :*: y) = (show x)++"*"++(show y)
+	show (x :/: y) = (show x)++"/"++(show y)
 
 --convenience
 type TokenParser a = GenParser Token () a
