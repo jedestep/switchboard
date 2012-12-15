@@ -10,6 +10,32 @@ import Debug.Trace
 import Data.List
 import Data.Maybe
 import qualified Data.Map as Map
+{-
+*** CSound to Euterpea evaluation
+Evaluating a parsed CSound AST wil produce an individual SigFun as the output; the output is formatted for use in contexts such as outFile. For example:
+
+> let output = evalCsound "example1.csd" []
+> :t output
+output :: SigFun AudRate () Double
+
+evalCsound accepts two arguments: the name of the file to be evaluated, and a list of doubles containing all user parameters. The parameters correspond to score file parameters in CSound (parameters beginning with 'p'). The interpreter labels them starting from p4. So typing 
+	evalCsound "example1.csd" [440,10000]
+would interpret example1.csd where the p4 argument is 440.0 and the p5 argument is 10000.0. 
+
+*** CSound library functions
+Notably, support for CSound functions outside of oscil is currently absent. This is due to a particular problem with arrow syntax and the arrow preprocessor. Take for example the following CSound program:
+
+instr 1
+k1  linen  p4,p5,p6,p7
+k2  linen  k1,p5,p6,p7
+a1  oscil  440,k2,1
+out a1
+
+Here, k1 would be evaluated to be of type SigFun AudRate Double Double, using the linen function in Euterpea.IO.Audio.CSound. Since all of its first three arguments can be guaranteed to be constant (they are p-variables), we can simply dereference p4, p5, and p6 from the environment, get their values, and feed them into linen. We can then feed p7 into the resulting arrow and store this arrowized value into the environment as k1. 
+How do we construct k2? It seems like we can do the same thing: simply get the values of k1, p5, and p6 and feed them into linen. However, the value of k1 has been made reactive by feeding it through linen once; it can no longer be used as an argument to linen. Thus it becomes clear that interpreting this program is actually fairly challenging.
+There are two possible paths to tackle this issue. The far simpler one (which may also end up producing a more desirable result) would be to compile the input CSound file instead of interpreting it. Given the infrastructure in place, it would be a significant but not extremely difficult change to make to have this code output a source file instead of a signal function. This also has the added benefit of allowing Euterpea users to edit the result of CSound compilation easily. In order to do this, it would make sense to add an additional state to the CSEnv monad representing the source file, which would be built up with individual lines as lines of CSound are read. A monad transformer could also be used to incorporate the Text.PrettyPrint module.
+The other path would be to eschew arrow preprocessor syntax and manually do the arrow computations necessary. While it would likely be possible to fudge out the required arrow computations, it would require changing the way the state is stored to include a list of previously evaluated variables with their values, which would then be available to the program as it evaluates other lines. This seems like the far larger amount of extra work.
+-}
 
 data ValSF = K Double | GenSF (AudSF [Double] Double)
 data CSEnv a = CSEnv (SFMap -> (SFMap, a))
@@ -35,7 +61,7 @@ instance Monad CSEnv where
 			runEval m1 (f v))
 			
 --Num instance
-instance Num ValSF where
+instance Num ValSF where --allow + and *; whenever we try to add reactive and non-reactive values, scale up to reactive
 	(GenSF a) + (GenSF b) = GenSF $ proc _ -> do
 		a' <- a -< []
 		b' <- b -< []

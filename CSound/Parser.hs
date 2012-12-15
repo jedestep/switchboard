@@ -5,6 +5,10 @@ import Text.ParserCombinators.Parsec.Expr
 import Text.Parsec.Pos (newPos)
 import Data.Either
 
+{-
+*** CSound parsing
+This CSound AST and parser are mostly complete. The AST describes a significant useful subset of CSound; though I had to construct it without access to a complete version of the CSound grammar (does such a thing even exist?) I believe it is only missing function calls on arguments (e.g. ampdb(p4)) and delay syntax. Currently the Equality constructor of OrchestraRow is not being parsed, but this is easy to implement. 
+-}
 --Abstract syntax tree
 data Program = Program {orch::OrchestraSection, scrs::ScoreSection} deriving Show
 data Tag = OpenTag String | CloseTag String -- <tagname>
